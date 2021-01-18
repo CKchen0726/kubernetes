@@ -27,7 +27,7 @@ import (
 	"k8s.io/apimachinery/pkg/util/diff"
 	apiserveroptions "k8s.io/apiserver/pkg/server/options"
 	cpconfig "k8s.io/cloud-provider/config"
-	serviceconfig "k8s.io/cloud-provider/service/config"
+	serviceconfig "k8s.io/cloud-provider/controllers/service/config"
 	componentbaseconfig "k8s.io/component-base/config"
 	cmconfig "k8s.io/controller-manager/config"
 	cmoptions "k8s.io/controller-manager/options"
@@ -103,8 +103,10 @@ func TestDefaultFlags(t *testing.T) {
 			BindNetwork: "tcp",
 		}).WithLoopback(),
 		Authentication: &apiserveroptions.DelegatingAuthenticationOptions{
-			CacheTTL:   10 * time.Second,
-			ClientCert: apiserveroptions.ClientCertAuthenticationOptions{},
+			CacheTTL:            10 * time.Second,
+			ClientTimeout:       10 * time.Second,
+			WebhookRetryBackoff: apiserveroptions.DefaultAuthWebhookRetryBackoff(),
+			ClientCert:          apiserveroptions.ClientCertAuthenticationOptions{},
 			RequestHeader: apiserveroptions.RequestHeaderAuthenticationOptions{
 				UsernameHeaders:     []string{"x-remote-user"},
 				GroupHeaders:        []string{"x-remote-group"},
@@ -116,6 +118,7 @@ func TestDefaultFlags(t *testing.T) {
 			AllowCacheTTL:                10 * time.Second,
 			DenyCacheTTL:                 10 * time.Second,
 			ClientTimeout:                10 * time.Second,
+			WebhookRetryBackoff:          apiserveroptions.DefaultAuthWebhookRetryBackoff(),
 			RemoteKubeConfigFileOptional: true,
 			AlwaysAllowPaths:             []string{"/healthz"}, // note: this does not match /healthz/ or
 		},
@@ -236,8 +239,10 @@ func TestAddFlags(t *testing.T) {
 			BindNetwork: "tcp",
 		}).WithLoopback(),
 		Authentication: &apiserveroptions.DelegatingAuthenticationOptions{
-			CacheTTL:   10 * time.Second,
-			ClientCert: apiserveroptions.ClientCertAuthenticationOptions{},
+			CacheTTL:            10 * time.Second,
+			ClientTimeout:       10 * time.Second,
+			WebhookRetryBackoff: apiserveroptions.DefaultAuthWebhookRetryBackoff(),
+			ClientCert:          apiserveroptions.ClientCertAuthenticationOptions{},
 			RequestHeader: apiserveroptions.RequestHeaderAuthenticationOptions{
 				UsernameHeaders:     []string{"x-remote-user"},
 				GroupHeaders:        []string{"x-remote-group"},
@@ -249,6 +254,7 @@ func TestAddFlags(t *testing.T) {
 			AllowCacheTTL:                10 * time.Second,
 			DenyCacheTTL:                 10 * time.Second,
 			ClientTimeout:                10 * time.Second,
+			WebhookRetryBackoff:          apiserveroptions.DefaultAuthWebhookRetryBackoff(),
 			RemoteKubeConfigFileOptional: true,
 			AlwaysAllowPaths:             []string{"/healthz"}, // note: this does not match /healthz/ or
 		},

@@ -37,6 +37,7 @@ import (
 	"k8s.io/apiserver/pkg/audit/policy"
 	"k8s.io/apiserver/pkg/server"
 	"k8s.io/apiserver/pkg/server/egressselector"
+	"k8s.io/apiserver/pkg/util/webhook"
 	pluginbuffered "k8s.io/apiserver/plugin/pkg/audit/buffered"
 	pluginlog "k8s.io/apiserver/plugin/pkg/audit/log"
 	plugintruncate "k8s.io/apiserver/plugin/pkg/audit/truncate"
@@ -154,7 +155,7 @@ type AuditDynamicOptions struct {
 func NewAuditOptions() *AuditOptions {
 	return &AuditOptions{
 		WebhookOptions: AuditWebhookOptions{
-			InitialBackoff: pluginwebhook.DefaultInitialBackoff,
+			InitialBackoff: pluginwebhook.DefaultInitialBackoffDelay,
 			BatchOptions: AuditBatchOptions{
 				Mode:        ModeBatch,
 				BatchConfig: defaultWebhookBatchConfig(),
@@ -307,7 +308,8 @@ func (o *AuditOptions) ApplyTo(
 			klog.V(2).Info("No audit policy file provided, no events will be recorded for webhook backend")
 		} else {
 			if c.EgressSelector != nil {
-				egressDialer, err := c.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
+				var egressDialer utilnet.DialFunc
+				egressDialer, err = c.EgressSelector.Lookup(egressselector.ControlPlane.AsNetworkContext())
 				if err != nil {
 					return err
 				}
@@ -569,7 +571,7 @@ func (o *AuditWebhookOptions) enabled() bool {
 // this is done so that the same trucate backend can wrap both the webhook and dynamic backends
 func (o *AuditWebhookOptions) newUntruncatedBackend(customDial utilnet.DialFunc) (audit.Backend, error) {
 	groupVersion, _ := schema.ParseGroupVersion(o.GroupVersionString)
-	webhook, err := pluginwebhook.NewBackend(o.ConfigFile, groupVersion, o.InitialBackoff, customDial)
+	webhook, err := pluginwebhook.NewBackend(o.ConfigFile, groupVersion, webhook.DefaultRetryBackoffWithInitialDelay(o.InitialBackoff), customDial)
 	if err != nil {
 		return nil, fmt.Errorf("initializing audit webhook: %v", err)
 	}

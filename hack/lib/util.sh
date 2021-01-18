@@ -45,7 +45,6 @@ kube::util::wait_for_url() {
   local wait=${3:-1}
   local times=${4:-30}
   local maxtime=${5:-1}
-  local extra_args=${6:-}
 
   command -v curl >/dev/null || {
     kube::log::usage "curl must be installed"
@@ -55,9 +54,7 @@ kube::util::wait_for_url() {
   local i
   for i in $(seq 1 "${times}"); do
     local out
-    # shellcheck disable=SC2086
-    # Disabling because "${extra_args}" needs to allow for expansion here
-    if out=$(curl --max-time "${maxtime}" -gkfs $extra_args "${url}" 2>/dev/null); then
+    if out=$(curl --max-time "${maxtime}" -gkfs "${@:6}" "${url}" 2>/dev/null); then
       kube::log::status "On try ${i}, ${prefix}: ${out}"
       return 0
     fi
@@ -75,7 +72,7 @@ kube::util::wait_for_url_with_bearer_token() {
   local times=${5:-30}
   local maxtime=${6:-1}
 
-  kube::util::wait_for_url "${url}" "${prefix}" "${wait}" "${times}" "${maxtime}" "--oauth2-bearer ${token}"
+  kube::util::wait_for_url "${url}" "${prefix}" "${wait}" "${times}" "${maxtime}" -H "Authorization: Bearer ${token}"
 }
 
 # Example:  kube::util::wait_for_success 120 5 "kubectl get nodes|grep localhost"
@@ -620,11 +617,9 @@ Can't connect to 'docker' daemon.  please fix and retry.
 Possible causes:
   - Docker Daemon not started
     - Linux: confirm via your init system
-    - macOS w/ docker-machine: run `docker-machine ls` and `docker-machine start <name>`
     - macOS w/ Docker for Mac: Check the menu bar and start the Docker application
   - DOCKER_HOST hasn't been set or is set incorrectly
     - Linux: domain socket is used, DOCKER_* should be unset. In Bash run `unset ${!DOCKER_*}`
-    - macOS w/ docker-machine: run `eval "$(docker-machine env <name>)"`
     - macOS w/ Docker for Mac: domain socket is used, DOCKER_* should be unset. In Bash run `unset ${!DOCKER_*}`
   - Other things to check:
     - Linux: User isn't in 'docker' group.  Add and relogin.
@@ -696,12 +691,12 @@ function kube::util::ensure-cfssl {
     kernel=$(uname -s)
     case "${kernel}" in
       Linux)
-        curl --retry 10 -L -o cfssl https://pkg.cfssl.org/R1.2/cfssl_linux-amd64
-        curl --retry 10 -L -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64
+        curl --retry 10 -L -o cfssl https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssl_1.5.0_linux_amd64
+        curl --retry 10 -L -o cfssljson https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssljson_1.5.0_linux_amd64
         ;;
       Darwin)
-        curl --retry 10 -L -o cfssl https://pkg.cfssl.org/R1.2/cfssl_darwin-amd64
-        curl --retry 10 -L -o cfssljson https://pkg.cfssl.org/R1.2/cfssljson_darwin-amd64
+        curl --retry 10 -L -o cfssl https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssl_1.5.0_darwin_amd64
+        curl --retry 10 -L -o cfssljson https://github.com/cloudflare/cfssl/releases/download/v1.5.0/cfssljson_1.5.0_darwin_amd64
         ;;
       *)
         echo "Unknown, unsupported platform: ${kernel}." >&2

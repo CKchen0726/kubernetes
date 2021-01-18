@@ -26,12 +26,6 @@ import (
 )
 
 const (
-	// SchedulerDefaultLockObjectNamespace defines default scheduler lock object namespace ("kube-system")
-	SchedulerDefaultLockObjectNamespace string = metav1.NamespaceSystem
-
-	// SchedulerDefaultLockObjectName defines default scheduler lock object name ("kube-scheduler")
-	SchedulerDefaultLockObjectName = "kube-scheduler"
-
 	// SchedulerPolicyConfigMapKey defines the key of the element in the
 	// scheduler's policy ConfigMap that contains scheduler's policy config.
 	SchedulerPolicyConfigMapKey = "policy.cfg"
@@ -412,7 +406,7 @@ type ExtenderTLSConfig struct {
 	CertData []byte
 	// KeyData holds PEM-encoded bytes (typically read from a client certificate key file).
 	// KeyData takes precedence over KeyFile
-	KeyData []byte
+	KeyData []byte `datapolicy:"security-key"`
 	// CAData holds PEM-encoded bytes (typically read from a root certificates bundle).
 	// CAData takes precedence over CAFile
 	CAData []byte
