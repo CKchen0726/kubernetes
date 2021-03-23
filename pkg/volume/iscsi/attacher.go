@@ -78,7 +78,7 @@ func (attacher *iscsiAttacher) VolumesAreAttached(specs []*volume.Spec, nodeName
 func (attacher *iscsiAttacher) WaitForAttach(spec *volume.Spec, devicePath string, pod *v1.Pod, timeout time.Duration) (string, error) {
 	mounter, err := volumeSpecToMounter(spec, attacher.host, attacher.targetLocks, pod)
 	if err != nil {
-		klog.Warningf("failed to get iscsi mounter: %v", err)
+		klog.ErrorS(err, "failed to get iscsi mounter")
 		return "", err
 	}
 	return attacher.manager.AttachDisk(*mounter)
@@ -88,7 +88,7 @@ func (attacher *iscsiAttacher) GetDeviceMountPath(
 	spec *volume.Spec) (string, error) {
 	mounter, err := volumeSpecToMounter(spec, attacher.host, attacher.targetLocks, nil)
 	if err != nil {
-		klog.Warningf("failed to get iscsi mounter: %v", err)
+		klog.ErrorS(err, "failed to get iscsi mounter")
 		return "", err
 	}
 	if mounter.InitiatorName != "" {
@@ -166,12 +166,12 @@ func (detacher *iscsiDetacher) UnmountDevice(deviceMountPath string) error {
 	if err != nil {
 		return fmt.Errorf("iscsi: failed to detach disk: %s\nError: %v", deviceMountPath, err)
 	}
-	klog.V(4).Infof("iscsi: %q is unmounted, deleting the directory", deviceMountPath)
+	klog.V(4).InfoS("iscsi is unmounted, deleting the directory", "path", deviceMountPath)
 	err = os.RemoveAll(deviceMountPath)
 	if err != nil {
 		return fmt.Errorf("iscsi: failed to delete the directory: %s\nError: %v", deviceMountPath, err)
 	}
-	klog.V(4).Infof("iscsi: successfully detached disk: %s", deviceMountPath)
+	klog.V(4).InfoS("iscsi: successfully detached disk")
 	return nil
 }
 
@@ -213,7 +213,7 @@ func volumeSpecToMounter(spec *volume.Spec, host volume.VolumeHost, targetLocks 
 		return nil, err
 	}
 
-	klog.V(5).Infof("iscsi: VolumeSpecToMounter volumeMode %s", volumeMode)
+	klog.V(5).InfoS("iscsi: VolumeSpecToMounter with volumeMode", "mode", volumeMode)
 	return &iscsiDiskMounter{
 		iscsiDisk:  iscsiDisk,
 		fsType:     fsType,
