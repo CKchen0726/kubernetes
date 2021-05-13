@@ -84,7 +84,7 @@ var _ volume.Volume = &csiMountMgr{}
 
 func (c *csiMountMgr) GetPath() string {
 	dir := GetCSIMounterPath(filepath.Join(getTargetPath(c.podUID, c.specVolumeID, c.plugin.host)))
-	klog.V(4).Info(log("mounter.GetPath generated [%s]", dir))
+	klog.V(4).InfoS(log("Mounter.GetPath generated path"), "path", dir)
 	return dir
 }
 
@@ -105,7 +105,7 @@ func (c *csiMountMgr) SetUp(mounterArgs volume.MounterArgs) error {
 }
 
 func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error {
-	klog.V(4).Infof(log("Mounter.SetUpAt(%s)", dir))
+	klog.V(4).InfoS(log("Mounter.SetUpAt"), "path", dir)
 
 	csi, err := c.csiClientGetter.Get()
 	if err != nil {
@@ -207,7 +207,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 	if err := os.MkdirAll(parentDir, 0750); err != nil {
 		return errors.New(log("mounter.SetUpAt failed to create dir %#v:  %v", parentDir, err))
 	}
-	klog.V(4).Info(log("created target path successfully [%s]", parentDir))
+	klog.V(4).InfoS(log("Created target path successfully"), "path", parentDir)
 
 	nodePublishSecrets = map[string]string{}
 	if secretRef != nil {
@@ -255,7 +255,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 		// If operation finished with error then we can remove the mount directory.
 		if volumetypes.IsOperationFinishedError(err) {
 			if removeMountDirErr := removeMountDir(c.plugin, dir); removeMountDirErr != nil {
-				klog.Error(log("mounter.SetupAt failed to remove mount dir after a NodePublish() error [%s]: %v", dir, removeMountDirErr))
+				klog.ErrorS(removeMountDirErr, log("Mounter.SetUpAt failed to remove mount dir after a NodePublishVolume()"), "path", dir)
 			}
 		}
 		return err
@@ -263,7 +263,7 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 
 	c.supportsSELinux, err = c.kubeVolHost.GetHostUtil().GetSELinuxSupport(dir)
 	if err != nil {
-		klog.V(2).Info(log("error checking for SELinux support: %s", err))
+		klog.V(2).InfoS(log("Failed to check SELinux support"), "err", err)
 	}
 
 	if c.supportsFSGroup(fsType, mounterArgs.FsGroup, c.fsGroupPolicy) {
@@ -276,10 +276,10 @@ func (c *csiMountMgr) SetUpAt(dir string, mounterArgs volume.MounterArgs) error 
 			//      cleaned up.
 			return volumetypes.NewUncertainProgressError(fmt.Sprintf("applyFSGroup failed for vol %s: %v", c.volumeID, err))
 		}
-		klog.V(4).Info(log("mounter.SetupAt fsGroup [%d] applied successfully to %s", *mounterArgs.FsGroup, c.volumeID))
+		klog.V(4).InfoS(log("Mounter.SetUpAt fsGroup applied successfully to volume"), "group", *mounterArgs.FsGroup, "volumeID", c.volumeID)
 	}
 
-	klog.V(4).Infof(log("mounter.SetUp successfully requested NodePublish [%s]", dir))
+	klog.V(4).InfoS(log("Mounter.SetUpAt successfully requested NodePublishVolume"), "path", dir)
 	return nil
 }
 
@@ -291,7 +291,7 @@ func (c *csiMountMgr) podServiceAccountTokenAttrs() (map[string]string, error) {
 	csiDriver, err := c.plugin.csiDriverLister.Get(string(c.driverName))
 	if err != nil {
 		if apierrors.IsNotFound(err) {
-			klog.V(5).Infof(log("CSIDriver %q not found, not adding service account token information", c.driverName))
+			klog.V(5).InfoS(log("CSIDriver not found, not adding service account token information"), "driverName", c.driverName)
 			return nil, nil
 		}
 		return nil, err
@@ -327,7 +327,7 @@ func (c *csiMountMgr) podServiceAccountTokenAttrs() (map[string]string, error) {
 		outputs[audience] = tr.Status
 	}
 
-	klog.V(4).Infof(log("Fetched service account token attrs for CSIDriver %q", c.driverName))
+	klog.V(4).InfoS(log("Fetched service account token attrs for CSIDriver"), "driverName", c.driverName)
 	tokens, _ := json.Marshal(outputs)
 	return map[string]string{
 		"csi.storage.k8s.io/serviceAccount.tokens": string(tokens),
@@ -349,12 +349,12 @@ func (c *csiMountMgr) TearDown() error {
 	return c.TearDownAt(c.GetPath())
 }
 func (c *csiMountMgr) TearDownAt(dir string) error {
-	klog.V(4).Infof(log("Unmounter.TearDown(%s)", dir))
+	klog.V(4).InfoS(log("Unmounter.TearDownAt"), "path", dir)
 
 	volID := c.volumeID
 	csi, err := c.csiClientGetter.Get()
 	if err != nil {
-		return errors.New(log("mounter.SetUpAt failed to get CSI client: %v", err))
+		return errors.New(log("unmounter.TearDownAt failed to get CSI client: %v", err))
 	}
 
 	// Could not get spec info on whether this is a migrated operation because c.spec is nil
@@ -362,7 +362,7 @@ func (c *csiMountMgr) TearDownAt(dir string) error {
 	defer cancel()
 
 	if err := csi.NodeUnpublishVolume(ctx, volID, dir); err != nil {
-		return errors.New(log("mounter.TearDownAt failed: %v", err))
+		return errors.New(log("unmounter.TearDownAt failed: %v", err))
 	}
 
 	// Deprecation: Removal of target_path provided in the NodePublish RPC call
@@ -371,9 +371,9 @@ func (c *csiMountMgr) TearDownAt(dir string) error {
 	// by the kubelet in the future. Kubelet will only be responsible for
 	// removal of json data files it creates and parent directories.
 	if err := removeMountDir(c.plugin, dir); err != nil {
-		return errors.New(log("mounter.TearDownAt failed to clean mount dir [%s]: %v", dir, err))
+		return errors.New(log("unmounter.TearDownAt failed to clean mount dir [%s]: %v", dir, err))
 	}
-	klog.V(4).Infof(log("mounter.TearDownAt successfully unmounted dir [%s]", dir))
+	klog.V(4).InfoS(log("Unmounter.TearDownAt successfully unmounted dir"), "path", dir)
 
 	return nil
 }
@@ -388,17 +388,17 @@ func (c *csiMountMgr) supportsFSGroup(fsType string, fsGroup *int64, driverPolic
 	}
 
 	if fsType == "" {
-		klog.V(4).Info(log("mounter.SetupAt WARNING: skipping fsGroup, fsType not provided"))
+		klog.V(4).InfoS(log("Mounter.SetUpAt WARNING: skipping fsGroup, fsType not provided"))
 		return false
 	}
 
 	accessModes := c.spec.PersistentVolume.Spec.AccessModes
 	if c.spec.PersistentVolume.Spec.AccessModes == nil {
-		klog.V(4).Info(log("mounter.SetupAt WARNING: skipping fsGroup, access modes not provided"))
+		klog.V(4).InfoS(log("Mounter.SetUpAt WARNING: skipping fsGroup, access modes not provided"))
 		return false
 	}
 	if !hasReadWriteOnce(accessModes) {
-		klog.V(4).Info(log("mounter.SetupAt WARNING: skipping fsGroup, only support ReadWriteOnce access mode"))
+		klog.V(4).InfoS(log("Mounter.SetUpAt WARNING: skipping fsGroup, only support ReadWriteOnce access mode"))
 		return false
 	}
 	return true
@@ -409,7 +409,7 @@ func isDirMounted(plug *csiPlugin, dir string) (bool, error) {
 	mounter := plug.host.GetMounter(plug.GetPluginName())
 	notMnt, err := mounter.IsLikelyNotMountPoint(dir)
 	if err != nil && !os.IsNotExist(err) {
-		klog.Error(log("isDirMounted IsLikelyNotMountPoint test failed for dir [%v]", dir))
+		klog.ErrorS(err, log("IsLikelyNotMountPoint check failed for dir"), "path", dir)
 		return false, err
 	}
 	return !notMnt, nil
@@ -422,26 +422,26 @@ func isCorruptedDir(dir string) bool {
 
 // removeMountDir cleans the mount dir when dir is not mounted and removed the volume data file in dir
 func removeMountDir(plug *csiPlugin, mountPath string) error {
-	klog.V(4).Info(log("removing mount path [%s]", mountPath))
+	klog.V(4).InfoS(log("Remove the mount path"), "path", mountPath)
 
 	mnt, err := isDirMounted(plug, mountPath)
 	if err != nil {
 		return err
 	}
 	if !mnt {
-		klog.V(4).Info(log("dir not mounted, deleting it [%s]", mountPath))
+		klog.V(4).InfoS(log("Dir not mounted, deleting the mount path"), "path", mountPath)
 		if err := os.Remove(mountPath); err != nil && !os.IsNotExist(err) {
 			return errors.New(log("failed to remove dir [%s]: %v", mountPath, err))
 		}
 		// remove volume data file as well
 		volPath := filepath.Dir(mountPath)
 		dataFile := filepath.Join(volPath, volDataFileName)
-		klog.V(4).Info(log("also deleting volume info data file [%s]", dataFile))
+		klog.V(4).InfoS(log("Remove volume info data file"), "dataFilePath", dataFile)
 		if err := os.Remove(dataFile); err != nil && !os.IsNotExist(err) {
 			return errors.New(log("failed to delete volume data file [%s]: %v", dataFile, err))
 		}
 		// remove volume path
-		klog.V(4).Info(log("deleting volume path [%s]", volPath))
+		klog.V(4).InfoS(log("Remove volume path"), "volumePath", volPath)
 		if err := os.Remove(volPath); err != nil && !os.IsNotExist(err) {
 			return errors.New(log("failed to delete volume path [%s]: %v", volPath, err))
 		}
